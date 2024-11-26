@@ -49,7 +49,7 @@ public:
     bool validateSolution() const;
 
     // return the sum of costs of the solution (MAX_COST if failed to solve)
-    tuple<double, double> run_once(int& failed_agent_id, int run_id,
+    tuple<vector<set<int>>, double, double> run_once(int& failed_agent_id, int run_id,
                                    double time_out_sec = 60.0);
     void reset();
 

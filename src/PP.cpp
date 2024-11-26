@@ -1,5 +1,7 @@
 #include "PP.h"
 
+constexpr bool DEBUG = false;
+
 PP::PP(Instance& instance, int screen, int seed)
     : instance(instance), screen(screen), seed(seed)
 //   path_table(instance.map_size + 1),  // plus 1 to include dummy start
@@ -67,10 +69,12 @@ void PP::preprocess(bool compute_distance_to_start,
     runtime_preprocessing = (double)(clock() - start_time) / CLOCKS_PER_SEC;
 }
 
-tuple<double, double> PP::run_once(int& failed_agent_id, int run_id,
+tuple<vector<set<int>>, double, double> PP::run_once(int& failed_agent_id, int run_id,
                                    double time_out_sec)
 {
     assert(ordering.size() == agents.size());
+    if(this->all_weighted_path_lengths.empty())
+        this->all_weighted_path_lengths.resize(1, vector<double>(this->agents.size(), MAX_COST));
     if (screen > 1)
     {
         cout << "Current order: ";
@@ -86,18 +90,22 @@ tuple<double, double> PP::run_once(int& failed_agent_id, int run_id,
                                      this->instance.map_size);
     // vector<double> weighted_path_lengths(agents.size());
     int n = 0;
-    for (int id : ordering)
+    for (int agent_id : ordering)
     {
+        cout << agent_id << " ";
         if (screen > 1)
-            cout << "Planning " << n << "th agent: " << id << endl;
+            cout << "Planning " << n << "th agent: " << agent_id << endl;
         n += 1;
         // path_table.hit_agents.clear();
         // agents[id].path = single_agent_planner.findOptimalPath(
         //             path_table, *agents[id].distance_to_goal,
         //             agents[id].start_location, agents[id].goal_location,
         //             time_out_sec, dummy_start_node);
-        agents[id].path = search_engines[id]->findOptimalPath(
-            constraint_table, 0, dummy_start_node);
+        agents[agent_id].path = search_engines[agent_id]->findOptimalPath(
+            constraint_table, 0, dummy_start_node, &dependency_graph, agent_id);
+        // cout << "pp dependency graph: " << endl;
+        // this->printDependencyGraph();
+
         // agents[id].path = single_agent_planner.findOptimalPath(
         //     constraint_table, 0, dummy_start_node);
         // agents[id].path = single_agent_planner.findOptimalPath(
@@ -109,7 +117,7 @@ tuple<double, double> PP::run_once(int& failed_agent_id, int run_id,
         {
             sum_of_costs = MAX_COST;
             curr_welfare = INT_MIN;
-            failed_agent_id = id;
+            failed_agent_id = agent_id;
             solution_found = false;
             break;
         }
@@ -120,26 +128,27 @@ tuple<double, double> PP::run_once(int& failed_agent_id, int run_id,
         //         agent.second < (int)(agents[id].path.size()) - 1)
         //         dependency_graph[id].insert(agent.first);
         // }
-        if (agents[id].path.empty())
+        if (agents[agent_id].path.empty())
         {
             sum_of_costs = MAX_COST;
             curr_welfare = INT_MIN;
-            failed_agent_id = id;
+            failed_agent_id = agent_id;
             solution_found = false;
             break;  // failed, id is the failing agent. in its dependency graph,
-                    // at least one pair should be reversed
+            // at least one pair should be reversed
         }
         double curr_agent_weighted_path_len =
-            (double)(agents[id].path.size() - 1) * this->instance.costs[id];
+            (double)(agents[agent_id].path.size() - 1) * this->instance.costs[agent_id];
         sum_of_costs += curr_agent_weighted_path_len;
         curr_welfare +=
-            max(this->instance.values[id] - curr_agent_weighted_path_len, 0.0);
+            max(this->instance.values[agent_id] - curr_agent_weighted_path_len, 0.0);
         // path_table.insertPath(agents[id].id, agents[id].path);
-        all_weighted_path_lengths[run_id][id] = curr_agent_weighted_path_len;
+        all_weighted_path_lengths[run_id][agent_id] = curr_agent_weighted_path_len;
 
         // Add current path to constraint table
-        constraint_table.insert2CT(agents[id].path);
+        constraint_table.insert2CT(agents[agent_id].path, agent_id);
     }
+    cout << endl;
 
     // Success: update min sum of cost without agent i
     if (failed_agent_id == -1)
@@ -162,9 +171,14 @@ tuple<double, double> PP::run_once(int& failed_agent_id, int run_id,
             }
         }
     }
+    if(DEBUG)
+    {
+        cout << "pp - dependency graph" << endl;
+        this->printDependencyGraph();
+    }
 
     runtime = (double)(clock() - start_time) / CLOCKS_PER_SEC;
-    return std::make_tuple(sum_of_costs, curr_welfare);
+    return std::make_tuple(dependency_graph, sum_of_costs, curr_welfare);
 }
 
 void PP::storeBestPath()
@@ -207,7 +221,7 @@ void PP::run(int n_runs, double time_out_sec)
         this->computeRandomOrdering();
         int failed_agent_id = -1;
         double sum_of_cost, curr_welfare;
-        std::tie(sum_of_cost, curr_welfare) =
+        std::tie(dependency_graph, sum_of_cost, curr_welfare) =
             run_once(failed_agent_id, i, time_out_sec);
 
         // Current run is failed

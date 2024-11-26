@@ -15,10 +15,11 @@ public:
     // landmarks.clear(); length_min = 0, length_max = INT_MAX; latest_timestep
     // = 0;}
 
-    bool constrained(size_t loc, int t) const;
-    bool constrained(size_t curr_loc, size_t next_loc, int next_t) const;
+    bool constrained(size_t loc, int t, int* ind = nullptr, int agent=-1) const;
+    bool constrained(size_t curr_loc, size_t next_loc, int next_t,
+                     int* ind = nullptr, int agent=-1) const;
     int getNumOfConflictsForStep(size_t curr_id, size_t next_id,
-                                 int next_timestep) const;
+                                int next_timestep) const;
     bool hasConflictForStep(size_t curr_id, size_t next_id,
                             int next_timestep) const;
     bool hasEdgeConflict(size_t curr_id, size_t next_id,
@@ -37,7 +38,9 @@ public:
     void clear()
     {
         ct.clear();
+        ct_ind.clear();
         landmarks.clear();
+        landmarks_ind.clear();
         cat.clear();
     }
     // build the constraint table for the given agent at the give node
@@ -45,16 +48,16 @@ public:
     // insert constraints for the given agent to the constraint table
     void insert2CT(const list<Constraint>& constraints, int agent);
     // insert a path to the constraint table
-    void insert2CT(const Path& path);
+    void insert2CT(const Path& path, int agent=-1);
     // insert a vertex constraint to the constraint table
-    void insert2CT(size_t loc, int t_min, int t_max);
+    void insert2CT(size_t loc, int t_min, int t_max, int agent=-1);
     // insert an edge constraint to the constraint table
-    void insert2CT(size_t from, size_t to, int t_min, int t_max);
+    void insert2CT(size_t from, size_t to, int t_min, int t_max, int agent=-1);
     // build the conflict avoidance table using a set of paths
     void insert2CAT(int agent, const vector<Path*>& paths);
     // insert a path to the collision avoidance table
     // int getCATMaxTimestep() const {return cat_max_timestep;}
-    void insert2CAT(const Path& path);
+    void insert2CAT(const Path& path, int agent=-1);
 
 protected:
     friend class ReservationTable;
@@ -62,6 +65,12 @@ protected:
     typedef unordered_map<size_t, list<pair<int, int> > > CT;
     CT ct;  // location -> time range, or edge -> time range
     int ct_max_timestep = 0;
+
+    // constraint table with indices
+    typedef unordered_map<size_t, list<tuple<int, int, int> > > CT_IND;
+    CT_IND ct_ind;  // location -> time range, or edge -> (start time, end time, index)
+
+
     // typedef unordered_map<size_t, set< pair<int, int> > > CAT; // conflict
     // avoidance table // location -> time range, or edge -> time range
     typedef vector<vector<bool> > CAT;
@@ -73,9 +82,13 @@ protected:
     // given timestep
     map<int, size_t> landmarks;
 
+    // timestep -> (location, agent id): the agent must be at the given location at the
+    // given timestep
+    map<int, pair<size_t, int>> landmarks_ind;
+
     void insertLandmark(size_t loc,
                         int t);  // insert a landmark, i.e., the agent has to be
-                                 // at the given location at the given timestep
+                                    // at the given location at the given timestep
     list<pair<int, int> > decodeBarrier(int B1, int B2, int t) const;
     inline size_t getEdgeIndex(size_t from, size_t to) const
     {

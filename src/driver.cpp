@@ -7,6 +7,7 @@
 
 #include "ECBS.h"
 #include "IDPBS.h"
+#include "IMM.h"
 #include "PBS.h"
 #include "PP.h"
 
@@ -229,7 +230,12 @@ int main(int argc, char** argv)
 
     //////////////////////////////////////////////////////////////////////
     // initialize the solver
-    if (vm["lowLevelSolver"].as<bool>() && algo == "ECBS")
+    if(algo == "IMM") {
+        int runs = vm["nRuns"].as<int>();
+        IMM imm(instance, vm["screen"].as<int>(), seed);
+        imm.run(runs, vm["cutoffTime"].as<double>());
+    }
+    else if (vm["lowLevelSolver"].as<bool>() && algo == "ECBS")
     {
         ECBS ecbs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
         ecbs.setPrioritizeConflicts(vm["prioritizingConflicts"].as<bool>());

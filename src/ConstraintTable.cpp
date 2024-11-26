@@ -23,14 +23,15 @@ int ConstraintTable::getLastCollisionTimestep(int location) const
     }
     return rst;
 }
-void ConstraintTable::insert2CT(size_t from, size_t to, int t_min, int t_max)
+void ConstraintTable::insert2CT(size_t from, size_t to, int t_min, int t_max, int agent)
 {
-    insert2CT(getEdgeIndex(from, to), t_min, t_max);
+    insert2CT(getEdgeIndex(from, to), t_min, t_max, agent);
 }
-void ConstraintTable::insert2CT(size_t loc, int t_min, int t_max)
+void ConstraintTable::insert2CT(size_t loc, int t_min, int t_max, int agent)
 {
     assert(loc >= 0);
     ct[loc].emplace_back(t_min, t_max);
+    if(agent != -1) ct_ind[loc].emplace_back(t_min, t_max, agent);
     if (t_max < MAX_TIMESTEP && t_max > ct_max_timestep)
     {
         ct_max_timestep = t_max;
@@ -68,7 +69,7 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
         }
         else  // other agents cannot stay at x at timestep t
         {
-            insert2CT(x, t, t + 1);
+            insert2CT(x, t, t + 1, agent);
         }
         break;
     case constraint_type::POSITIVE_EDGE:
@@ -82,9 +83,9 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
         else  // other agents cannot stay at x at timestep t - 1, be at y at
               // timestep t, or traverse edge (y, x) from timesteps t - 1 to t
         {
-            insert2CT(x, t - 1, t);
-            insert2CT(y, t, t + 1);
-            insert2CT(y, x, t, t + 1);
+            insert2CT(x, t - 1, t, agent);
+            insert2CT(y, t, t + 1, agent);
+            insert2CT(y, x, t, t + 1, agent);
         }
         break;
     case constraint_type::VERTEX:
@@ -93,14 +94,14 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
             for (const auto& constraint : constraints)
             {
                 tie(a, x, y, t, type) = constraint;
-                insert2CT(x, t, t + 1);
+                insert2CT(x, t, t + 1, agent);
             }
         }
         break;
     case constraint_type::EDGE:
         assert(constraints.size() == 1);
         if (a == agent)
-            insert2CT(x, y, t, t + 1);
+            insert2CT(x, y, t, t + 1, agent);
         break;
     case constraint_type::BARRIER:
         if (a == agent)
@@ -111,7 +112,7 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
                 auto states = decodeBarrier(x, y, t);
                 for (const auto& state : states)
                 {
-                    insert2CT(state.first, state.second, state.second + 1);
+                    insert2CT(state.first, state.second, state.second + 1, agent);
                 }
             }
         }
@@ -120,7 +121,7 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
         if (a == agent)
         {
             assert(constraints.size() == 1);
-            insert2CT(x, y, t + 1);  // the agent cannot stay at x from timestep
+            insert2CT(x, y, t + 1, agent);  // the agent cannot stay at x from timestep
                                      // y to timestep t.
         }
         break;
@@ -133,7 +134,7 @@ void ConstraintTable::insert2CT(const list<Constraint>& constraints, int agent)
     }
 }
 
-void ConstraintTable::insert2CT(const Path& path)
+void ConstraintTable::insert2CT(const Path& path, int agent)
 {
     int prev_location = path.front().location;
     int prev_timestep = 0;
@@ -143,16 +144,16 @@ void ConstraintTable::insert2CT(const Path& path)
         if (prev_location != curr_location)
         {
             insert2CT(prev_location, prev_timestep,
-                      timestep);  // add vertex conflict
+                      timestep, agent);  // add vertex conflict
             insert2CT(curr_location, prev_location, timestep,
-                      timestep + 1);  // add edge conflict
+                      timestep + 1, agent);  // add edge conflict
             prev_location = curr_location;
             prev_timestep = timestep;
         }
     }
     // We ignore target conflicts
     // insert2CT(path.back().location, (int)path.size() - 1, MAX_TIMESTEP);
-    insert2CT(path.back().location, (int)path.size() - 1, (int)path.size());
+    insert2CT(path.back().location, (int)path.size() - 1, (int)path.size(), agent);
 }
 
 void ConstraintTable::insertLandmark(size_t loc, int t)
@@ -160,6 +161,7 @@ void ConstraintTable::insertLandmark(size_t loc, int t)
     auto it = landmarks.find(t);
     if (it == landmarks.end())
     {
+        assert(landmarks_ind.find(t) == landmarks_ind.end());
         landmarks[t] = loc;
     }
     else
@@ -173,10 +175,10 @@ void ConstraintTable::insert2CAT(int agent, const vector<Path*>& paths)
     {
         if (ag == agent || paths[ag] == nullptr || paths[ag]->size() == 1)
             continue;
-        insert2CAT(*paths[ag]);
+        insert2CAT(*paths[ag], agent);
     }
 }
-void ConstraintTable::insert2CAT(const Path& path)
+void ConstraintTable::insert2CAT(const Path& path, int agent)
 {
     if (cat.empty())
     {
@@ -228,7 +230,7 @@ list<pair<int, int> > ConstraintTable::decodeBarrier(int x, int y, int t) const
     return rst;
 }
 
-bool ConstraintTable::constrained(size_t loc, int t) const
+bool ConstraintTable::constrained(size_t loc, int t, int* ind, int agent) const
 {
     assert(loc >= 0);
     if (loc == GLOBAL_VAR::dummy_start_loc)
@@ -237,7 +239,11 @@ bool ConstraintTable::constrained(size_t loc, int t) const
     {
         const auto& it = landmarks.find(t);
         if (it != landmarks.end() && it->second != loc)
+        {
+            // agent is constrained to another location at time t
+            if(ind != nullptr) *ind = agent;
             return true;  // violate the positive vertex constraint
+        }
     }
 
     const auto& it = ct.find(loc);
@@ -245,20 +251,37 @@ bool ConstraintTable::constrained(size_t loc, int t) const
     {
         return false;
     }
-    for (const auto& constraint : it->second)
+    if(agent != -1)
     {
-        if (constraint.first <= t && t < constraint.second)
-            return true;
+        const auto& it_ind = ct_ind.find(loc);
+        assert(it_ind != ct_ind.end());
+        for (const auto& constraint : it_ind->second)
+        {
+            // if (constraint.first <= t && t < constraint.second)
+            //     return true;
+            if (get<0>(constraint) <= t && t < get<1>(constraint)) {
+                if(ind != nullptr) *ind = get<2>(constraint);
+                return true;
+            }
+        }
+    } else
+    {
+        for (const auto& constraint : it->second)
+        {
+            if (constraint.first <= t && t < constraint.second)
+                return true;
+        }
     }
+
     return false;
 }
 bool ConstraintTable::constrained(size_t curr_loc, size_t next_loc,
-                                  int next_t) const
+                                  int next_t, int* ind, int agent) const
 {
     if (curr_loc == GLOBAL_VAR::dummy_start_loc ||
         next_loc == GLOBAL_VAR::dummy_start_loc)
         return false;
-    return constrained(getEdgeIndex(curr_loc, next_loc), next_t);
+    return constrained(getEdgeIndex(curr_loc, next_loc), next_t, ind, agent);
 }
 
 void ConstraintTable::copy(const ConstraintTable& other)
@@ -268,6 +291,7 @@ void ConstraintTable::copy(const ConstraintTable& other)
     num_col = other.num_col;
     map_size = other.map_size;
     ct = other.ct;
+    ct_ind = other.ct_ind;
     ct_max_timestep = other.ct_max_timestep;
     cat = other.cat;
     cat_max_timestep = other.cat_max_timestep;

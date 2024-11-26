@@ -64,7 +64,9 @@ public:
                          const vector<Path*>& paths, int agent, int lower_bound,
                          bool dummy_start_node) override;
     Path findOptimalPath(const ConstraintTable& constraint_table,
-                         int lowerbound, bool dummy_start_node);
+                         int lowerbound, bool dummy_start_node,
+                         vector<set<int>>* dependency_graph = nullptr,
+                         int current_agent_id = -1);
     pair<Path, int> findSuboptimalPath(
         const HLNode& node, const ConstraintTable& initial_constraints,
         const vector<Path*>& paths, int agent, int lowerbound, double w,

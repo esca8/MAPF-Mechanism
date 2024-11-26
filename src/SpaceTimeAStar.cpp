@@ -14,8 +14,10 @@ void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
 }
 
 Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
-                                     int lowerbound, bool dummy_start_node)
+                                     int lowerbound, bool dummy_start_node,
+                                     vector<set<int>>* dependency_graph, int current_agent_id)
 {
+    bool debug = false;
     optimal = true;  // using A* search
     Path path;
     num_expanded = 0;
@@ -24,7 +26,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
     // build constraint table
     auto t = clock();
 
-    if (constraint_table.constrained(start_location, 0))
+    if (constraint_table.constrained(start_location, 0, current_agent_id))
     {
         // cout << "called" << endl;
         return path;
@@ -100,15 +102,22 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
                 next_timestep--;
             }
 
-            if (constraint_table.constrained(next_location, next_timestep) ||
+            int constrained_ind = -1;
+            if (constraint_table.constrained(next_location, next_timestep, &constrained_ind, current_agent_id) ||
                 constraint_table.constrained(curr->location, next_location,
-                                             next_timestep))
+                                             next_timestep, &constrained_ind, current_agent_id))
             {
-                // if (constraint_table.constrained(next_location, next_timestep))
-                //     cout << "vertex constrained" << endl;
-                // if (constraint_table.constrained(curr->location, next_location,
-                //                                  next_timestep))
-                //     cout << "edge constrained" << endl;
+                if(dependency_graph && current_agent_id != -1
+                    && constrained_ind != -1 && current_agent_id != constrained_ind)
+                {
+                    if(debug) cout << "add to dep graph: " << current_agent_id << "," << constrained_ind << endl;
+                    (*dependency_graph)[current_agent_id].insert(constrained_ind);
+                }
+                if (constraint_table.constrained(next_location, next_timestep))
+                    if(debug) cout << "vertex constrained" << endl;
+                if (constraint_table.constrained(curr->location, next_location,
+                                                 next_timestep))
+                    if(debug) cout << "edge constrained" << endl;
                 continue;
             }
 
