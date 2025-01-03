@@ -24,6 +24,8 @@ public:
 
     uint64_t num_HL_expanded = 0;
     uint64_t num_HL_generated = 0;
+    uint64_t num_HL_leaves = 0;           // TODO: redundant; equals n_solutions
+    uint64_t num_HL_with_conflicts = 0;
     uint64_t num_LL_expanded = 0;
     uint64_t num_LL_generated = 0;
 

@@ -213,7 +213,6 @@ int main(int argc, char** argv)
     Instance instance(vm["map"].as<string>(), vm["agents"].as<string>(), seed,
                       vm["cost"].as<string>(), vm["value"].as<string>(),
                       vm["agentNum"].as<int>(), 0, 0, vm["nLayers"].as<int>());
-
     GLOBAL_VAR::dummy_start_loc = instance.map_size;
 
     // Log basic info of current exp
@@ -232,7 +231,7 @@ int main(int argc, char** argv)
     // initialize the solver
     if(algo == "IMM") {
         int runs = vm["nRuns"].as<int>();
-        IMM imm(instance, vm["screen"].as<int>(), seed);
+        IMM imm(instance, vm["screen"].as<int>(), seed, logdir);
         imm.run(runs, vm["cutoffTime"].as<double>());
     }
     else if (vm["lowLevelSolver"].as<bool>() && algo == "ECBS")
@@ -357,7 +356,7 @@ int main(int argc, char** argv)
         if (pbs.solution_found && vm["savePath"].as<bool>())
             pbs.savePaths((logdir / "paths.txt").string());
         pbs.saveResults(logdir / "result.json", vm["agents"].as<string>());
-        // pbs.savePriorityGraphs(logdir / "all_sols.json"); // for debug
+        pbs.savePriorityGraphs(logdir / "all_sols.json"); // for debug
         /*size_t pos = (logdir / "stats.csv").string().rfind('.');      //
         position of the file extension string output_name = (logdir /
         "stats.csv").string().substr(0, pos);     // get the name without

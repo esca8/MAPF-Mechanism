@@ -65,8 +65,7 @@ public:
                          bool dummy_start_node) override;
     Path findOptimalPath(const ConstraintTable& constraint_table,
                          int lowerbound, bool dummy_start_node,
-                         vector<set<int>>* dependency_graph = nullptr,
-                         int current_agent_id = -1);
+                         vector<set<int>>* dependency_graph = nullptr);
     pair<Path, int> findSuboptimalPath(
         const HLNode& node, const ConstraintTable& initial_constraints,
         const vector<Path*>& paths, int agent, int lowerbound, double w,
@@ -101,7 +100,8 @@ private:
     hashtable_t allNodes_table;
 
     // Updates the path datamember
-    void updatePath(const LLNode* goal, vector<PathEntry>& path);
+    void updatePath(const LLNode* goal, vector<PathEntry>& path,
+        vector<set<int>>* dependency_graph = nullptr);
     void updateFocalList();
     inline AStarNode* popNode();
     inline void pushNode(AStarNode* node);

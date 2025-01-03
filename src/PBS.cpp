@@ -93,6 +93,7 @@ bool PBS::solve(double _time_limit)
         cout << "Found " << this->n_solutions
              << " solutions, min cost: " << solution_cost
              << ", max welfare: " << max_social_welfare << endl;
+        cout << "Num HL leaves: " << this->num_HL_leaves << endl;
         // ******************* Debug *******************
         // cout << "N solutions without overlap: " <<
         // this->all_sol_by_path.size()
@@ -411,6 +412,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
                 // cout << "should never happen" << endl;
                 delete node;
                 parent->children[child_id] = nullptr;
+                num_HL_with_conflicts++;
                 return false;
             }
 
@@ -432,6 +434,10 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
                     node->conflicts.emplace_back(new_conflict);
                 }
                 break;
+            } else
+            {
+                // If no conflicts, this is a leaf.
+                num_HL_leaves++;
             }
 
             // Current agent has no conflicts with any agents that are not in

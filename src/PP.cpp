@@ -92,7 +92,6 @@ tuple<vector<set<int>>, double, double> PP::run_once(int& failed_agent_id, int r
     int n = 0;
     for (int agent_id : ordering)
     {
-        cout << agent_id << " ";
         if (screen > 1)
             cout << "Planning " << n << "th agent: " << agent_id << endl;
         n += 1;
@@ -101,8 +100,9 @@ tuple<vector<set<int>>, double, double> PP::run_once(int& failed_agent_id, int r
         //             path_table, *agents[id].distance_to_goal,
         //             agents[id].start_location, agents[id].goal_location,
         //             time_out_sec, dummy_start_node);
+        if(agent_id == 4) cout << "4" << endl;
         agents[agent_id].path = search_engines[agent_id]->findOptimalPath(
-            constraint_table, 0, dummy_start_node, &dependency_graph, agent_id);
+            constraint_table, 0, dummy_start_node, &dependency_graph);
         // cout << "pp dependency graph: " << endl;
         // this->printDependencyGraph();
 
@@ -148,7 +148,6 @@ tuple<vector<set<int>>, double, double> PP::run_once(int& failed_agent_id, int r
         // Add current path to constraint table
         constraint_table.insert2CT(agents[agent_id].path, agent_id);
     }
-    cout << endl;
 
     // Success: update min sum of cost without agent i
     if (failed_agent_id == -1)
@@ -199,7 +198,8 @@ void PP::savePaths(const string& fileName) const
     {
         output << "Agent " << i << ": ";
         for (const auto& t : *best_paths[i])
-            output << "(" << this->instance.getRowCoordinate(t.location) << ","
+            output << this->instance.getRowCoordinate(t.location) * this->instance.num_of_rows + this->instance.getColCoordinate(t.location)
+                   << "(" << this->instance.getRowCoordinate(t.location) << ","
                    << this->instance.getColCoordinate(t.location) << ","
                    << this->instance.getLayerCoordinate(t.location) << ")->";
         output << endl;

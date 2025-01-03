@@ -68,7 +68,7 @@ protected:
 
     // constraint table with indices
     typedef unordered_map<size_t, list<tuple<int, int, int> > > CT_IND;
-    CT_IND ct_ind;  // location -> time range, or edge -> (start time, end time, index)
+    CT_IND ct_ind;  // (location or edge) -> (start time, end time, index)
 
 
     // typedef unordered_map<size_t, set< pair<int, int> > > CAT; // conflict

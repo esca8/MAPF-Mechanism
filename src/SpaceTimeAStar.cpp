@@ -1,6 +1,6 @@
 #include "SpaceTimeAStar.h"
 
-void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
+void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path, vector<set<int>>* dependency_graph)
 {
     const LLNode* curr = goal;
 
@@ -8,6 +8,10 @@ void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
     while (curr != nullptr)
     {
         path.emplace_back(curr->location);
+        for(int prev_agent_id : curr->agents_higher_priority)
+        {
+            (*dependency_graph)[agent_id].insert(prev_agent_id);
+        }
         curr = curr->parent;
     }
     std::reverse(path.begin(), path.end());
@@ -15,7 +19,7 @@ void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path)
 
 Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
                                      int lowerbound, bool dummy_start_node,
-                                     vector<set<int>>* dependency_graph, int current_agent_id)
+                                     vector<set<int>>* dependency_graph)
 {
     bool debug = false;
     optimal = true;  // using A* search
@@ -26,7 +30,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
     // build constraint table
     auto t = clock();
 
-    if (constraint_table.constrained(start_location, 0, current_agent_id))
+    if (constraint_table.constrained(start_location, 0, agent_id))
     {
         // cout << "called" << endl;
         return path;
@@ -67,7 +71,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
         // check if the popped node is a goal
         if (curr->location == goal_location)  // arrive at the goal location
         {
-            updatePath(curr, path);
+            updatePath(curr, path, dependency_graph);
             break;
         }
 
@@ -103,21 +107,26 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
             }
 
             int constrained_ind = -1;
-            if (constraint_table.constrained(next_location, next_timestep, &constrained_ind, current_agent_id) ||
+            if (constraint_table.constrained(next_location, next_timestep, &constrained_ind, agent_id) ||
                 constraint_table.constrained(curr->location, next_location,
-                                             next_timestep, &constrained_ind, current_agent_id))
+                                             next_timestep, &constrained_ind, agent_id))
             {
-                if(dependency_graph && current_agent_id != -1
-                    && constrained_ind != -1 && current_agent_id != constrained_ind)
+                // TODO: double check
+                if(dependency_graph && agent_id != -1
+                    && constrained_ind != -1 && agent_id != constrained_ind)
                 {
-                    if(debug) cout << "add to dep graph: " << current_agent_id << "," << constrained_ind << endl;
-                    (*dependency_graph)[current_agent_id].insert(constrained_ind);
+                    if(debug) cout << "add llnode dependency: " << agent_id << "," << constrained_ind << endl;
+                    curr->agents_higher_priority.emplace_back(constrained_ind);
+                    // (*dependency_graph)[agent_id].insert(constrained_ind);
                 }
-                if (constraint_table.constrained(next_location, next_timestep))
-                    if(debug) cout << "vertex constrained" << endl;
-                if (constraint_table.constrained(curr->location, next_location,
+                if(debug)
+                {
+                    if (constraint_table.constrained(next_location, next_timestep))
+                        cout << "vertex constrained" << endl;
+                    if (constraint_table.constrained(curr->location, next_location,
                                                  next_timestep))
-                    if(debug) cout << "edge constrained" << endl;
+                        cout << "edge constrained" << endl;
+                }
                 continue;
             }
 

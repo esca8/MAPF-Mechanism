@@ -14,6 +14,9 @@ public:
     bool in_openlist = false;
     bool wait_at_goal;  // the action is to wait at the goal vertex or not. This
                         // is used for >lenghth constraints
+    // agents_higher_priority: in SpaceTimeAStar findOptimalPath, tracks
+    // higher priority agents which this node hits
+    vector<int> agents_higher_priority = vector<int>();
 
     // the following is used to compare nodes in the OPEN list
     struct compare_node
@@ -126,6 +129,7 @@ public:
 
     int start_location;
     int goal_location;
+    int agent_id = -1; // default: uninitialized
     vector<int>
         my_heuristic;  // this is the precomputed heuristic for this agent
     int compute_heuristic(int from, int to)
@@ -161,7 +165,7 @@ public:
     // int getGoalLocation() const {return instance.goal_locations[agent]; }
 
     SingleAgentSolver(const Instance& instance, int agent)
-        : instance(instance),  // agent(agent),
+        : instance(instance),  agent_id(agent),
           start_location(instance.start_locations[agent]),
           goal_location(instance.goal_locations[agent])
     {
