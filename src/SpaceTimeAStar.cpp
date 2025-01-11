@@ -1,17 +1,24 @@
 #include "SpaceTimeAStar.h"
 
-void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path, vector<set<int>>* dependency_graph)
+void SpaceTimeAStar::updatePath(const LLNode* goal, vector<PathEntry>& path, vector<pair<int, int>>* curr_partial_order, vector<set<int>>* dependency_graph)
 {
     const LLNode* curr = goal;
+    int goal_f_val = goal->getFVal();
+    if(dependency_graph)
+    {
+        for(auto &[prev_agent_ind, f_val] : (*curr_partial_order))
+        {
+            if(f_val <= goal_f_val)
+            {
+                (*dependency_graph)[agent_id].insert(prev_agent_ind);
+            }
+        }
+    }
 
     path.reserve(curr->g_val + 1);
     while (curr != nullptr)
     {
         path.emplace_back(curr->location);
-        for(int prev_agent_id : curr->agents_higher_priority)
-        {
-            (*dependency_graph)[agent_id].insert(prev_agent_id);
-        }
         curr = curr->parent;
     }
     std::reverse(path.begin(), path.end());
@@ -22,6 +29,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
                                      vector<set<int>>* dependency_graph)
 {
     bool debug = false;
+    vector<pair<int, int>> curr_partial_order;
     optimal = true;  // using A* search
     Path path;
     num_expanded = 0;
@@ -30,7 +38,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
     // build constraint table
     auto t = clock();
 
-    if (constraint_table.constrained(start_location, 0, agent_id))
+    if (constraint_table.constrained(start_location, 0))
     {
         // cout << "called" << endl;
         return path;
@@ -71,7 +79,7 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
         // check if the popped node is a goal
         if (curr->location == goal_location)  // arrive at the goal location
         {
-            updatePath(curr, path, dependency_graph);
+            updatePath(curr, path, &curr_partial_order, dependency_graph);
             break;
         }
 
@@ -106,30 +114,6 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
                 next_timestep--;
             }
 
-            int constrained_ind = -1;
-            if (constraint_table.constrained(next_location, next_timestep, &constrained_ind, agent_id) ||
-                constraint_table.constrained(curr->location, next_location,
-                                             next_timestep, &constrained_ind, agent_id))
-            {
-                // TODO: double check
-                if(dependency_graph && agent_id != -1
-                    && constrained_ind != -1 && agent_id != constrained_ind)
-                {
-                    if(debug) cout << "add llnode dependency: " << agent_id << "," << constrained_ind << endl;
-                    curr->agents_higher_priority.emplace_back(constrained_ind);
-                    // (*dependency_graph)[agent_id].insert(constrained_ind);
-                }
-                if(debug)
-                {
-                    if (constraint_table.constrained(next_location, next_timestep))
-                        cout << "vertex constrained" << endl;
-                    if (constraint_table.constrained(curr->location, next_location,
-                                                 next_timestep))
-                        cout << "edge constrained" << endl;
-                }
-                continue;
-            }
-
             // compute cost to next_id via curr node
             int next_g_val = curr->g_val + 1;
             // int next_h_val =
@@ -138,6 +122,27 @@ Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table,
             if (next_g_val + next_h_val > constraint_table.length_max)
             {
                 // cout << "n_g + n_h = " << next_g_val << " + " << next_h_val << " vs " << "len_max = " << constraint_table.length_max << endl;
+                continue;
+            }
+            int next_f_val = next_g_val + next_h_val;
+
+            // update dependency graph
+            int constrained_ind = -1;
+            if (constraint_table.constrained(next_location, next_timestep, &constrained_ind, agent_id) ||
+                constraint_table.constrained(curr->location, next_location,
+                                             next_timestep, &constrained_ind, agent_id))
+            {
+                if(dependency_graph && agent_id != -1
+                    && constrained_ind != -1 && agent_id != constrained_ind)
+                {
+                    if(debug) cout << "add llnode dependency: " << agent_id << "," << constrained_ind << endl;
+                    curr_partial_order.emplace_back(pair<int,int>(constrained_ind, next_f_val));
+                }
+                if (debug && constraint_table.constrained(next_location, next_timestep))
+                    cout << "vertex constrained" << endl;
+                if (debug && constraint_table.constrained(curr->location, next_location,
+                                                 next_timestep))
+                    cout << "edge constrained" << endl;
                 continue;
             }
 

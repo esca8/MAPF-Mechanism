@@ -100,7 +100,6 @@ tuple<vector<set<int>>, double, double> PP::run_once(int& failed_agent_id, int r
         //             path_table, *agents[id].distance_to_goal,
         //             agents[id].start_location, agents[id].goal_location,
         //             time_out_sec, dummy_start_node);
-        if(agent_id == 4) cout << "4" << endl;
         agents[agent_id].path = search_engines[agent_id]->findOptimalPath(
             constraint_table, 0, dummy_start_node, &dependency_graph);
         // cout << "pp dependency graph: " << endl;

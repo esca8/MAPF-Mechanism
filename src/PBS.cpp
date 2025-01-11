@@ -434,10 +434,6 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
                     node->conflicts.emplace_back(new_conflict);
                 }
                 break;
-            } else
-            {
-                // If no conflicts, this is a leaf.
-                num_HL_leaves++;
             }
 
             // Current agent has no conflicts with any agents that are not in
@@ -453,7 +449,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         // {
         //     for (auto a = 0; a < num_of_agents; a++)
         //     {
-        //         for (auto a2 = a + 1; a2 < num_of_agents; a2++)
+        //         for (auto a2 = a + 1; a2 < num_o_agents; a2++)
         //         {
         //             if (!node->to_be_replanned[a] &&
         //                 !node->to_be_replanned[a2] && hasConflicts(a, a2))

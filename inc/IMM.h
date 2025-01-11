@@ -25,6 +25,9 @@ public:
     double solution_cost = -2;
     double max_social_welfare = INT_MIN;
 
+    typedef vector<set<int>> PO;
+    vector<PO> partial_orders;
+
 private:
     // input params
     Instance& instance;
@@ -43,6 +46,7 @@ private:
 
     double runtime_uncached_pp1 = 0;
     double runtime_cached_lookup = 0;
-    double runtime_update_permutation = 0;};
+    double runtime_update_permutation = 0;
+};
 
 #endif //IMM_H

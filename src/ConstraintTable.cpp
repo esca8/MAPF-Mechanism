@@ -31,7 +31,7 @@ void ConstraintTable::insert2CT(size_t loc, int t_min, int t_max, int agent)
 {
     assert(loc >= 0);
     ct[loc].emplace_back(t_min, t_max);
-    if(agent != -1) ct_ind[loc].emplace_back(t_min, t_max, agent);
+    ct_ind[loc].emplace_back(t_min, t_max, agent);
     if (t_max < MAX_TIMESTEP && t_max > ct_max_timestep)
     {
         ct_max_timestep = t_max;

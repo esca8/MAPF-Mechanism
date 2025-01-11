@@ -14,9 +14,6 @@ public:
     bool in_openlist = false;
     bool wait_at_goal;  // the action is to wait at the goal vertex or not. This
                         // is used for >lenghth constraints
-    // agents_higher_priority: in SpaceTimeAStar findOptimalPath, tracks
-    // higher priority agents which this node hits
-    vector<int> agents_higher_priority = vector<int>();
 
     // the following is used to compare nodes in the OPEN list
     struct compare_node

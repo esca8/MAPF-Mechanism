@@ -83,45 +83,45 @@ bool IMM::is_in_memo(const vector<int>& total_order_permutation) {
     return false;
 }
 
-// If there are stronger partial orders in the memo, remove them.
-int IMM::removeStrongerMemoEntry(vector<set<int>> partial_order)
-{
-    int num_removed = 0;
-    int ind = 0;
-    while(ind < memo.size())
-    {
-        tuple<vector<set<int>>, double, double>& cached_result = memo[ind];
-        vector<set<int>> memo_partial_order = get<0>(cached_result);
-        bool is_consistent = true;
-        for(int i = 0; i < partial_order.size(); i++)
-        {
-            for(int j : partial_order[i])
-            {
-                // j has lower priority than i
-                if(memo_partial_order[i].find(j) == memo_partial_order[i].end())
-                {
-                    is_consistent = false;
-                    break;
-                }
-            }
-        }
-        if(is_consistent)
-        {
-            // if consistent, remove the stronger memo entry
-            if(screen > 1)
-            {
-                cout << " ++ Removing stronger entry: " << endl;
-                print_memo_entry(cached_result);
-            }
-            memo.erase(memo.begin() + ind);
-            num_removed++;
-        } else
-        {
-            ind++;
-        }
-    }
-    return num_removed;
-}
+// // If there are stronger partial orders in the memo, remove them.
+// int IMM::removeStrongerMemoEntry(vector<set<int>> partial_order)
+// {
+//     int num_removed = 0;
+//     int ind = 0;
+//     while(ind < memo.size())
+//     {
+//         tuple<vector<set<int>>, double, double>& cached_result = memo[ind];
+//         vector<set<int>> memo_partial_order = get<0>(cached_result);
+//         bool is_consistent = true;
+//         for(int i = 0; i < partial_order.size(); i++)
+//         {
+//             for(int j : partial_order[i])
+//             {
+//                 // j has lower priority than i
+//                 if(memo_partial_order[i].find(j) == memo_partial_order[i].end())
+//                 {
+//                     is_consistent = false;
+//                     break;
+//                 }
+//             }
+//         }
+//         if(is_consistent)
+//         {
+//             // if consistent, remove the stronger memo entry
+//             if(screen > 1)
+//             {
+//                 cout << " ++ Removing stronger entry: " << endl;
+//                 print_memo_entry(cached_result);
+//             }
+//             memo.erase(memo.begin() + ind);
+//             num_removed++;
+//         } else
+//         {
+//             ind++;
+//         }
+//     }
+//     return num_removed;
+// }
 
 void IMM::run(int n, double time_out_sec) {
     bool saveResult = true;
@@ -129,6 +129,9 @@ void IMM::run(int n, double time_out_sec) {
     vector<int> total_order_permutation(agents.size());
     iota(total_order_permutation.begin(), total_order_permutation.end(), 0);
     int i = 0;
+
+    PP* pp = new PP(instance, screen, seed);
+    pp->setLowLevelSolver(true);
     while (true) {
         i++;
         if(screen > 1)
@@ -155,9 +158,6 @@ void IMM::run(int n, double time_out_sec) {
                 cout << endl;
             }
             cout << "   uncached " << endl;
-            // TODO: move out of loop
-            PP* pp = new PP(instance, screen, seed);
-            pp->setLowLevelSolver(true);
             pp->reset();
             pp->ordering = total_order;
 
@@ -166,8 +166,8 @@ void IMM::run(int n, double time_out_sec) {
             double sum_of_cost, curr_welfare;
             std::tie(partial_order, sum_of_cost, curr_welfare) = pp->run_once(failed_agent_id, 0, time_out_sec);
 
-            // Remove stronger partial orders
-            removeStrongerMemoEntry(partial_order);
+            // OBSOLETE: Remove stronger partial orders
+            // removeStrongerMemoEntry(partial_order);
 
             memo.emplace_back(partial_order, curr_welfare, sum_of_cost);
             if(screen >= 1)
