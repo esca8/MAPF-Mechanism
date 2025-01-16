@@ -7,6 +7,44 @@
 
 // TODO: add runtime statistics, print-graph functions
 
+// get all combinations of reversing any number of edges. If acyclic, add to queue.
+void IMM::reverse_all_edge_combos_helper(graph_t graph_orig, graph_t graph_upd, int ind1, set<int>::iterator ind2)
+{
+    if(ind2 == graph_orig[ind1].end())
+    {
+        int next_ind = min(graph_orig.size()-1, ind1+1);
+        return reverse_all_edge_combos_helper(graph_orig, graph_upd, ind1 + 1,
+                                              graph_orig[next_ind].begin());
+    }
+    if(ind1 == graph_orig.size())
+    {
+        if(!containsCycle(graph_upd))
+        {
+            // TODO: store hash instead of graph (then decode)?
+            PartialOrdersQueue.push(std::make_pair(graph_upd, hashDAG(graph_upd)));
+        }
+    }
+    int src = ind1;
+    int dst = *ind2; ++ind2;
+    reverse_all_edge_combos_helper(graph_orig, graph_upd, ind1, ind2);
+    reverseEdge(graph_upd, src, dst);
+    reverse_all_edge_combos_helper(graph_orig, graph_upd, ind1, ind2);
+    reverseEdge(graph_upd, src, dst);
+}
+
+void IMM::reverse_all_edge_combos(graph_t graph)
+{
+    // vector<vector<int>> graph_vec;
+    vector<set<int>> graph_upd;
+    for (int i = 0; i < graph.size(); i++)
+    {
+        // graph_vec.push_back(vector<int>(graph[i].begin(), graph[i].end()));
+        graph_upd.push_back(graph[i]);
+    }
+
+    reverse_all_edge_combos_helper(graph, graph_upd, 0, graph[0].begin());
+}
+
 IMM::IMM(Instance& instance, int screen, int seed, boost::filesystem::path logdir)
     : instance(instance), screen(screen), seed(seed)
 {
@@ -34,25 +72,7 @@ void print_memo_entry(tuple<vector<set<int>>, double, double>& memo_entry)
     cout << "====" << endl;
 }
 
-// void print_memo(const vector<pair<vector<set<int>>, double>>& data) {
-//     for (const auto& [fst, snd] : data) {
-//         const auto& vec = fst;  // Vector of sets
-//
-//         std::cout << "welfare: " << snd << "\n";
-//
-//         std::cout << "partial order: [\n";
-//         for (const auto& s : vec) {
-//             std::cout << "  { ";
-//             for (const auto& elem : s) {
-//                 std::cout << elem << " ";
-//             }
-//             std::cout << "}\n";
-//         }
-//         std::cout << "]\n";
-//     }
-// }
-
-void IMM::print_partial_order(vector<set<int>>& partial_order) {
+void IMM::print_partial_order(graph_t& partial_order) {
     for (size_t i = 0; i < partial_order.size(); ++i) {
         if(partial_order[i].empty()) continue;
         std::cout << "Agent " << i << " depends on : { ";
@@ -63,66 +83,6 @@ void IMM::print_partial_order(vector<set<int>>& partial_order) {
     }
 }
 
-// Check if total_order_permutation is consistent with any of the cached partial_orders.
-bool IMM::is_in_memo(const vector<int>& total_order_permutation) {
-    for (const auto& cached_result : memo) {
-        vector<set<int>> partial_order = std::get<0>(cached_result);
-        bool is_broken = false;
-        for(int i = 0; i < partial_order.size(); i++) {
-            for (const int j : partial_order[i]) {
-                // partial_order[i][j]: i has lower priority than j
-                if(total_order_permutation[i] < total_order_permutation[j])
-                {
-                    is_broken = true;
-                    break;
-                }
-            }
-        }
-        if(!is_broken) return true;
-    }
-    return false;
-}
-
-// // If there are stronger partial orders in the memo, remove them.
-// int IMM::removeStrongerMemoEntry(vector<set<int>> partial_order)
-// {
-//     int num_removed = 0;
-//     int ind = 0;
-//     while(ind < memo.size())
-//     {
-//         tuple<vector<set<int>>, double, double>& cached_result = memo[ind];
-//         vector<set<int>> memo_partial_order = get<0>(cached_result);
-//         bool is_consistent = true;
-//         for(int i = 0; i < partial_order.size(); i++)
-//         {
-//             for(int j : partial_order[i])
-//             {
-//                 // j has lower priority than i
-//                 if(memo_partial_order[i].find(j) == memo_partial_order[i].end())
-//                 {
-//                     is_consistent = false;
-//                     break;
-//                 }
-//             }
-//         }
-//         if(is_consistent)
-//         {
-//             // if consistent, remove the stronger memo entry
-//             if(screen > 1)
-//             {
-//                 cout << " ++ Removing stronger entry: " << endl;
-//                 print_memo_entry(cached_result);
-//             }
-//             memo.erase(memo.begin() + ind);
-//             num_removed++;
-//         } else
-//         {
-//             ind++;
-//         }
-//     }
-//     return num_removed;
-// }
-
 void IMM::run(int n, double time_out_sec) {
     bool saveResult = true;
     memo.clear();
@@ -132,87 +92,65 @@ void IMM::run(int n, double time_out_sec) {
 
     PP* pp = new PP(instance, screen, seed);
     pp->setLowLevelSolver(true);
-    while (true) {
-        i++;
+    while (!PartialOrdersQueue.empty())
+    {
+        graph_t partial_order;
+        string po_hash;
+        std::tie(partial_order, po_hash) = PartialOrdersQueue.back();
+        PartialOrdersQueue.pop();
+
         if(screen > 1)
         {
-            cout << "total ord: ";
-            for (const int id : total_order_permutation) {
-                std::cout << id << " ";
-            }
+            cout << "partial ord: ";
+            print_partial_order(partial_order);
             std::cout << std::endl;
         }
+
+        // consistent total order
+        vector<int> total_order = topoSort(partial_order);
+
+        if(screen >= 1)
+        {
+            cout << "total ord (uncached): ";
+            for (const int id : total_order) {
+                cout << id << " ";
+            }
+            cout << endl;
+        }
+        pp->reset();
+        pp->ordering = total_order;
+
+        int failed_agent_id = -1;
+        vector<set<int>> partial_order_2;
+        double sum_of_cost, curr_welfare;
+        std::tie(partial_order_2, sum_of_cost, curr_welfare) = pp->run_once(failed_agent_id, 0, time_out_sec);
+        memo2.insert( std::make_pair(po_hash, std::make_pair(sum_of_cost, curr_welfare)));
+        if(screen > 0) cout << "    welfare: " << curr_welfare << endl;
+        if(screen > 0) cout << "    cost: " << sum_of_cost << endl;
+        if (solution_cost == -2 || curr_welfare > max_social_welfare)
+        {
+            solution_cost = sum_of_cost;
+            max_social_welfare = curr_welfare;
+        } else if(curr_welfare == max_social_welfare)
+        {
+            solution_cost = min(solution_cost, sum_of_cost);
+        }
+
+        string po2_hash = hashDAG(partial_order_2);
         clock_t t1 = clock();
-        if(!is_in_memo(total_order_permutation)) {
-            vector total_order = vector<int>(agents.size(), 0);
-            for (int i = 0; i < total_order_permutation.size(); i++)
-            {
-                total_order[total_order_permutation[i]] = i;
-            }
-
-            if(screen >= 1)
-            {
-                for (const int id : total_order) {
-                    cout << id << " ";
-                }
-                cout << endl;
-            }
-            cout << "   uncached " << endl;
-            pp->reset();
-            pp->ordering = total_order;
-
-            int failed_agent_id = -1;
-            vector<set<int>> partial_order;
-            double sum_of_cost, curr_welfare;
-            std::tie(partial_order, sum_of_cost, curr_welfare) = pp->run_once(failed_agent_id, 0, time_out_sec);
-
-            // OBSOLETE: Remove stronger partial orders
-            // removeStrongerMemoEntry(partial_order);
-
-            memo.emplace_back(partial_order, curr_welfare, sum_of_cost);
-            if(screen >= 1)
-            {
-                cout << "partial order: " << endl;
-                print_partial_order(partial_order);
-            }
+        if(!memo2.contains(po2_hash)) {
+            reverse_all_edge_combos(partial_order_2);
 
             runtime_uncached_pp1 += (double)(clock() - t1) / CLOCKS_PER_SEC;
-            if(screen > 0) cout << "    welfare: " << curr_welfare << endl;
-            if(screen > 0) cout << "    cost: " << sum_of_cost << endl;
-            if (solution_cost == -2 || curr_welfare > max_social_welfare)
-            {
-                solution_cost = sum_of_cost;
-                max_social_welfare = curr_welfare;
-            } else if(curr_welfare == max_social_welfare)
-            {
-                solution_cost = min(solution_cost, sum_of_cost);
-            }
-
-            if(saveResult)
-            {
-                std::stringstream result;
-                std::copy(total_order.begin(), total_order.end(), std::ostream_iterator<int>(result, "_"));
-                pp->storeBestPath();
-                pp->savePaths((logdir / result.str().c_str()).string());
-            }
-
-        } else
-        {
-            runtime_cached_lookup += (double)(clock() - t1) / CLOCKS_PER_SEC;
-            // if(screen > 0)
-            // {
-            //     cout << " --runtime cached: " << runtime_cached_lookup << endl;
-            //     cout << " --runtime uncached: " << runtime_uncached_pp1 << endl;
-            // }
-            if(screen >= 2 && i % 1000 == 0)
-            {
-                auto total_iters = boost::math::factorial<double>(agents.size());
-                cout << "progress: " << (((float)i)/total_iters) << endl;
-            }
         }
-        clock_t t2 = clock();
-        if(!std::next_permutation(total_order_permutation.begin(), total_order_permutation.end())) break;
-        runtime_update_permutation += (double)(clock() - t2) / CLOCKS_PER_SEC;
+
+        if(saveResult)
+        {
+            std::stringstream result;
+            std::copy(total_order.begin(), total_order.end(), std::ostream_iterator<int>(result, "_"));
+            pp->storeBestPath();
+            pp->savePaths((logdir / result.str().c_str()).string());
+        }
     }
 
     if(screen > 0)

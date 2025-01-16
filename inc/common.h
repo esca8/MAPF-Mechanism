@@ -13,6 +13,7 @@
 #include <iostream>  // std::cout, std::fixed
 #include <list>
 #include <set>
+#include <queue>
 #include <tuple>
 #include <vector>
 #include <numeric>
@@ -40,6 +41,7 @@ using std::max;
 using std::min;
 using std::ofstream;
 using std::pair;
+using std::queue;
 using std::set;
 using std::shared_ptr;
 using std::string;
@@ -139,3 +141,10 @@ double weighted_path_cost(vector<Path*> paths, vector<double> costs);
 bool areDoubleSame(double dFirstVal, double dSecondVal);
 
 int find_index(vector<int> v, int to_find);
+
+// DAG helper methods
+typedef vector<set<int>> graph_t;
+vector<int> topoSort(graph_t dag);
+bool containsCycle(graph_t dag);
+string hashDAG(graph_t dag);
+void reverseEdge(graph_t graph, int src, int dest);

@@ -149,3 +149,91 @@ int find_index(vector<int> v, int to_find)
     }
     return -1;
 }
+
+vector<int> topoSort(graph_t dag)
+{
+    int n = dag.size();
+    vector<int> topo_ord(0);
+    vector<int> in_degrees(n, 0);
+    queue<int> q;
+    for(int i = 0; i < n; i++)
+    {
+        for(int j : dag[i])
+        {
+            in_degrees[j]++;
+        }
+    }
+    for(int i = 0; i < n; i++)
+    {
+        if(in_degrees[i] == 0) q.push(i);
+    }
+    while(!q.empty() && topo_ord.size() < n)
+    {
+        int i = q.pop();
+        topo_ord.push_back(i);
+        for(int j : dag[i])
+        {
+            in_degrees[j]--;
+            if(in_degrees[j] == 0) q.push(j);
+        }
+    }
+    if(topo_ord.size() != n)
+    {
+        cerr << "error: graph contains cycles" << endl;
+    }
+}
+
+// check for cycles involving node i (for a connected component)
+bool containsCycleHelper(graph_t graph, vector<bool> ancestors, vector<bool> visited, int curr) {
+    visited[curr] = true;
+    ancestors[curr] = true;
+    for(int j : graph[curr])
+    {
+        if(ancestors[j]) return false; // has a cycle
+        if(!visited[j] && containsCycleHelper(graph, ancestors, visited, j)) return true;
+    }
+    return true;
+}
+
+bool containsCycle(graph_t graph)
+{
+    int n = graph.size();
+    vector<bool> visited(n, 0);
+    vector<bool> ancestors(n, 0);
+    for(int i = 0; i < n; i++)
+    {
+        if(!visited[i] && containsCycleHelper(graph, ancestors, visited, i)) return true;
+    }
+    return false;
+}
+
+// convert set to string (iter traverses the set in order)
+string setToString(set<int> s)
+{
+    stringstream ss;
+    for (auto it = s.begin(); it != s.end(); it++)
+    {
+        if(it != s.begin()) ss << ",";
+        ss << *it;
+    }
+    return ss.str();
+}
+
+string hashDAG(graph_t graph)
+{
+    stringstream ss;
+    vector<int> topo_ord = topoSort(graph);
+    for(int node : topo_ord)
+    {
+        ss << node;
+        ss << ":" << setToString(graph[node]) << "|";
+    }
+    return ss.str();
+}
+
+void reverseEdge(graph_set_t graph, int src, int dest)
+{
+    assert(graph[src].find(dest) != graph[src].end());
+    graph[src].erase(dest);
+    graph[dest].insert(src);
+}
